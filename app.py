@@ -723,68 +723,15 @@ def add_metric_explanations():
         """)
 
 def export_data(filtered_df, client_name):
-    """Export des données avec gestion des limitations Excel"""
-    # Vérifier si on a des URLs qui dépasseraient la limite Excel
-    url_columns = [col for col in filtered_df.columns if '(URL)' in col]
-    has_long_urls = any(
-        filtered_df[col].astype(str).str.len().max() > 255 
-        for col in url_columns
+    """Export des données au format CSV"""
+    st.download_button(
+        "📥 Export CSV",
+        filtered_df.to_csv(index=False),
+        f"Analyse_Concurrentielle_{client_name}.csv",
+        mime="text/csv",
+        help="Télécharger les résultats au format CSV",
+        type="primary"
     )
-
-    # Conteneur pour les boutons d'export avec style personnalisé
-    st.markdown("""
-        <style>
-        .export-buttons {
-            display: flex;
-            gap: 8px;  /* Réduit l'espacement entre les boutons */
-            margin-top: 1rem;
-            justify-content: flex-start;  /* Aligne les boutons à gauche */
-            padding-left: 0;  /* Supprime le padding à gauche */
-        }
-        .export-buttons > div {
-            flex: 0 0 auto;
-            padding: 0;  /* Supprime le padding des colonnes */
-        }
-        .export-buttons button {
-            min-width: 120px;  /* Largeur minimale des boutons */
-        }
-        </style>
-    """, unsafe_allow_html=True)
-
-    if has_long_urls:
-        # Si on a des URLs trop longues, proposer uniquement le CSV
-        st.markdown('<div class="export-buttons">', unsafe_allow_html=True)
-        st.download_button(
-            "📥 Export CSV",
-            filtered_df.to_csv(index=False),
-            f"Analyse_Concurrentielle_{client_name}.csv",
-            mime="text/csv",
-            help="Export au format CSV (recommandé pour les URLs longues)",
-            type="primary"
-        )
-        st.markdown('</div>', unsafe_allow_html=True)
-    else:
-        # Sinon proposer les deux formats
-        st.markdown('<div class="export-buttons">', unsafe_allow_html=True)
-        col1, col2 = st.columns([1, 1])  # Deux colonnes de même taille sans espacement
-        with col1:
-            st.download_button(
-                "📥 Export CSV",
-                filtered_df.to_csv(index=False),
-                f"Analyse_Concurrentielle_{client_name}.csv",
-                mime="text/csv",
-                type="primary"
-            )
-        with col2:
-            buffer = export_to_excel(filtered_df, client_name)
-            st.download_button(
-                "📊 Export Excel",
-                buffer.getvalue(),
-                f"Analyse_Concurrentielle_{client_name}.xlsx",
-                mime="application/vnd.ms-excel",
-                type="primary"
-            )
-        st.markdown('</div>', unsafe_allow_html=True)
 
 def create_advanced_visualizations(filtered_df, client_name):
     # Distribution des volumes par difficulté
@@ -974,6 +921,39 @@ def main():
     
     # En-tête avec description
     st.title("Analyse Concurrentielle")
+    
+    # Guide d'utilisation en dropdown dans la zone principale
+    with st.expander("📖 Guide d'utilisation", expanded=False):
+        st.markdown("""
+        ## 1. Import des données
+        ### Formats acceptés :
+        - **Ahrefs** : `domain-organic-keywords.csv`
+           - Export depuis : Organic Keywords > Export
+           - Encodage : UTF-16
+        - **Semrush** : `domain-organic.Positions.csv`
+           - Export depuis : Organic Research > Positions
+           - Encodage : UTF-8
+
+        ## 2. Configuration
+        - **Client** : Sélectionnez votre domaine
+        - **Nombre minimum de sites** : Filtrer les mots-clés présents sur X sites concurrents
+        - **Position maximum** : Limite de position pour l'analyse (ex: top 20)
+
+        ## 3. Stratégies SEO
+        - **🏆 Sauvegarde** (Pos. 1) : Maintenir le positionnement
+        - **⚡ Quick Win** (Pos. 2-5) : Opportunités rapides
+        - **📈 Opportunité** (Pos. 6-10) : Potentiel à court terme
+        - **🎯 Potentiel** (Pos. 11-20) : Potentiel à moyen terme
+        - **🚀 Conquête** (Pos. > 20) : Objectifs long terme
+
+        ## 4. Intentions de recherche
+        - **ℹ️ Informationnelle** : Recherche d'information
+        - **💰 Transactionnelle** : Intention d'achat
+        - **🔍 Navigationnelle** : Recherche de site/marque
+        - **🛒 Commerciale** : Comparaison/évaluation
+
+        **💡 Conseil** : Commencez par les "Quick Wins" (positions 2-5) pour des résultats rapides
+        """)
     
     # Configuration dans la sidebar
     with st.sidebar:
