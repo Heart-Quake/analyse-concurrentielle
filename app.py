@@ -5,7 +5,7 @@ from io import BytesIO
 import plotly.express as px
 
 st.set_page_config(
-    page_title="Analyse Content Gap SEO",
+    page_title="Analyse Concurrentielle",
     layout="wide",
     initial_sidebar_state="expanded"
 )
@@ -14,20 +14,29 @@ st.set_page_config(
 st.markdown("""
     <style>
     /* Hiérarchie visuelle */
-    h1 {
-        color: #2E4053;
-        font-size: 2.5rem;
-        margin-bottom: 2rem;
-    }
-    .subheader {
-        color: #566573;
-        font-size: 1.5rem;
-        margin: 1.5rem 0;
+    h1, h2, h3, h4, h5, h6 {
+        color: #2BAF9C;  /* Vert du logo */
     }
     
-    /* Composants interactifs */
-    .stButton > button {
-        background-color: #FF4B4B;
+    /* Style spécifique pour les titres de filtres */
+    .filter-title {
+        color: #2BAF9C;
+        font-size: 1.1rem;
+        font-weight: 600;
+        margin-top: 1rem;
+        margin-bottom: 0.5rem;
+    }
+
+    /* Style pour les titres de sections */
+    .stTabs [data-baseweb="tab-list"] button [data-testid="stMarkdownContainer"] p {
+        color: #2BAF9C;
+        font-size: 1rem;
+        font-weight: 500;
+    }
+    
+    /* Composants interactifs - Boutons et téléchargements */
+    .stButton > button, .stDownloadButton > button, div[data-testid="stSidebarNav"] button {
+        background-color: #2BAF9C;  /* Vert du logo */
         color: white;
         font-weight: 600;
         padding: 0.75rem 1.5rem;
@@ -35,8 +44,8 @@ st.markdown("""
         border: none;
         transition: all 0.2s ease;
     }
-    .stButton > button:hover {
-        background-color: #E74C3C;
+    .stButton > button:hover, .stDownloadButton > button:hover, div[data-testid="stSidebarNav"] button:hover {
+        background-color: #249889;  /* Version plus foncée du vert */
         transform: translateY(-1px);
     }
     
@@ -59,6 +68,14 @@ st.markdown("""
     }
     .stMultiSelect {
         margin-bottom: 1rem;
+    }
+
+    /* Titres des sections */
+    .section-header {
+        color: #249889;
+        font-weight: 600;
+        margin-top: 1rem;
+        margin-bottom: 0.5rem;
     }
     </style>
 """, unsafe_allow_html=True)
@@ -263,143 +280,246 @@ def process_and_store_data(uploaded_files, client_name, nombre_sites, top_positi
         st.error(f"Erreur lors du traitement : {str(e)}")
         return False
 
-def display_filtered_results(df_final, client_name):
+def display_filtered_results(filtered_df, client_name):
     """Affiche les résultats filtrés"""
-    with st.container():
-        with st.expander("🔍 Filtres avancés", expanded=True):
-            # Filtres par stratégie
-            st.markdown("##### Filtrer par stratégie")
-            strategies = df_final['Stratégie'].unique().tolist()
-            selected_strategies = st.multiselect(
-                "",
-                options=strategies,
-                default=strategies,
-                key='strategy_filter',
-                help="""
-                Sauvegarde : Position 1
-                Quick Win : Positions 2-5
-                Opportunité : Positions 6-10
-                Potentiel : Positions 11-20
-                Conquête : Positions > 20
-                Non positionné : Absent du top 100
-                """
-            )
-
-            # Métriques principales
-            st.markdown("##### Métriques principales")
-            metric_cols = st.columns(3)
-            
-            # Volume de recherche
-            with metric_cols[0]:
-                vol_min = int(df_final['Search Volume'].min())
-                vol_max = int(df_final['Search Volume'].max())
-                volume_range = st.slider(
-                    "Volume de recherche",
-                    min_value=vol_min,
-                    max_value=vol_max,
-                    value=(vol_min, vol_max),
-                    key='volume_slider',
-                    help="Nombre mensuel moyen de recherches pour ce mot-clé"
-                )
-
-            # Position
-            with metric_cols[1]:
-                position_min = 0
-                position_max = int(df_final[f'{client_name} (Position)'].max())
-                position_range = st.slider(
-                    "Position du client",
-                    min_value=position_min,
-                    max_value=position_max,
-                    value=(position_min, min(20, position_max)),
-                    help="Position actuelle du site client dans les résultats Google"
-                )
-
-            # Difficulté
-            with metric_cols[2]:
-                kd_range = st.slider(
-                    "Difficulté",
-                    min_value=int(df_final['Keyword Difficulty'].min()),
-                    max_value=int(df_final['Keyword Difficulty'].max()),
-                    value=(0, 100),
-                    key='kd_slider',
-                    help="Score de difficulté (0-100) pour se positionner sur ce mot-clé"
-                )
-
-            # Recherche et tri
-            st.markdown("##### Recherche et tri")
-            cols = st.columns([2, 1.5, 1])
-            
-            # Recherche
-            keyword_search = cols[0].text_input(
-                "",
-                placeholder="Rechercher des mots-clés",
-                help="Filtrer les résultats contenant ce texte dans le mot-clé",
-                key='keyword_search'
-            )
-
-            # Tri
-            sort_options = {
-                'Volume de recherche': 'Search Volume',
-                'Difficulté': 'Keyword Difficulty',
-                'Position': f'{client_name} (Position)',
-                'CPC': 'CPC'
-            }
-            sort_by = cols[1].selectbox(
-                "",
-                options=list(sort_options.keys()),
-                format_func=lambda x: f"Trier par : {x}",
-                help="Choisir le critère de tri des résultats"
-            )
-
-            # Ordre
-            sort_order = cols[2].radio(
-                "",
-                options=['Décroissant', 'Croissant'],
-                horizontal=True,
-                help="Ordre de tri des résultats"
-            )
-
-            # Intention de recherche
-            st.markdown("##### Intention de recherche")
-            intentions = df_final['Intention'].unique().tolist()
-            selected_intentions = st.multiselect(
-                "",
-                options=intentions,
-                default=intentions,
-                key='intent_filter',
-                help="""
-                Informationnelle : Recherche d'information (comment, pourquoi...)
-                Transactionnelle : Intention d'achat (prix, acheter...)
-                Navigationnelle : Recherche de site/page spécifique
-                Commerciale : Comparaison/évaluation de produits
-                Autre : Intention non déterminée
-                """
-            )
-
-        # Application des filtres
-        filtered_df = df_final[
-            (df_final['Stratégie'].isin(selected_strategies)) &
-            (df_final['Intention'].isin(selected_intentions)) &
-            (df_final['Search Volume'].between(volume_range[0], volume_range[1])) &
-            (df_final[f'{client_name} (Position)'].fillna(0).between(position_range[0], position_range[1])) &
-            (df_final['Keyword Difficulty'].between(kd_range[0], kd_range[1]))
-        ]
-
-        # Application du filtre textuel
-        if keyword_search:
-            filtered_df = filtered_df[
-                filtered_df['Keyword'].str.contains(keyword_search, case=False, na=False)
-            ]
-        
-        # Application du tri
-        sort_column = sort_options[sort_by]
-        filtered_df = filtered_df.sort_values(
-            by=sort_column,
-            ascending=(sort_order == 'Croissant')
+    with st.expander("🔍 Filtres avancés", expanded=True):
+        # Filtres par stratégie
+        st.markdown('<p class="filter-title">Filtrer par stratégie</p>', unsafe_allow_html=True)
+        strategies = filtered_df['Stratégie'].unique().tolist()
+        selected_strategies = st.multiselect(
+            "",
+            options=strategies,
+            default=strategies,
+            key='strategy_filter',
+            help="""
+            Sauvegarde : Position 1
+            Quick Win : Positions 2-5
+            Opportunité : Positions 6-10
+            Potentiel : Positions 11-20
+            Conquête : Positions > 20
+            Non positionné : Absent du top 100
+            """
         )
 
-        # Affichage des métriques et résultats
-        display_metrics_and_results(filtered_df, client_name)
+        # Métriques principales
+        st.markdown('<p class="filter-title">Métriques principales</p>', unsafe_allow_html=True)
+        metric_cols = st.columns(3)
+        
+        # Volume de recherche
+        with metric_cols[0]:
+            vol_min = int(filtered_df['Search Volume'].min())
+            vol_max = int(filtered_df['Search Volume'].max())
+            volume_range = st.slider(
+                "Volume de recherche",
+                min_value=vol_min,
+                max_value=vol_max,
+                value=(vol_min, vol_max),
+                key='volume_slider',
+                help="Nombre mensuel moyen de recherches pour ce mot-clé"
+            )
+
+        # Position
+        with metric_cols[1]:
+            position_min = 0
+            position_max = int(filtered_df[f'{client_name} (Position)'].max())
+            position_range = st.slider(
+                "Position du client",
+                min_value=position_min,
+                max_value=position_max,
+                value=(position_min, min(20, position_max)),
+                help="Position actuelle du site client dans les résultats Google"
+            )
+
+        # Difficulté
+        with metric_cols[2]:
+            kd_range = st.slider(
+                "Difficulté",
+                min_value=int(filtered_df['Keyword Difficulty'].min()),
+                max_value=int(filtered_df['Keyword Difficulty'].max()),
+                value=(0, 100),
+                key='kd_slider',
+                help="Score de difficulté (0-100) pour se positionner sur ce mot-clé"
+            )
+
+        # Recherche et tri
+        st.markdown('<p class="filter-title">Recherche et tri</p>', unsafe_allow_html=True)
+        cols = st.columns([2, 1.5, 1])
+        
+        # Recherche
+        keyword_search = cols[0].text_input(
+            "",
+            placeholder="Rechercher des mots-clés",
+            help="Filtrer les résultats contenant ce texte dans le mot-clé",
+            key='keyword_search'
+        )
+
+        # Tri
+        sort_options = {
+            'Volume de recherche': 'Search Volume',
+            'Difficulté': 'Keyword Difficulty',
+            'Position': f'{client_name} (Position)',
+            'CPC': 'CPC'
+        }
+        sort_by = cols[1].selectbox(
+            "",
+            options=list(sort_options.keys()),
+            format_func=lambda x: f"Trier par : {x}",
+            help="Choisir le critère de tri des résultats"
+        )
+
+        # Ordre
+        sort_order = cols[2].radio(
+            "",
+            options=['Décroissant', 'Croissant'],
+            horizontal=True,
+            help="Ordre de tri des résultats"
+        )
+
+        # Intention de recherche
+        st.markdown('<p class="filter-title">Intention de recherche</p>', unsafe_allow_html=True)
+        intentions = filtered_df['Intention'].unique().tolist()
+        selected_intentions = st.multiselect(
+            "",
+            options=intentions,
+            default=intentions,
+            key='intent_filter',
+            help="""
+            Informationnelle : Recherche d'information (comment, pourquoi...)
+            Transactionnelle : Intention d'achat (prix, acheter...)
+            Navigationnelle : Recherche de site/page spécifique
+            Commerciale : Comparaison/évaluation de produits
+            Autre : Intention non déterminée
+            """
+        )
+
+    # Application des filtres
+    filtered_df = filtered_df[
+        (filtered_df['Stratégie'].isin(selected_strategies)) &
+        (filtered_df['Intention'].isin(selected_intentions)) &
+        (filtered_df['Search Volume'].between(volume_range[0], volume_range[1])) &
+        (filtered_df[f'{client_name} (Position)'].fillna(0).between(position_range[0], position_range[1])) &
+        (filtered_df['Keyword Difficulty'].between(kd_range[0], kd_range[1]))
+    ]
+
+    # Application du filtre textuel
+    if keyword_search:
+        filtered_df = filtered_df[
+            filtered_df['Keyword'].str.contains(keyword_search, case=False, na=False)
+        ]
+    
+    # Application du tri
+    sort_column = sort_options[sort_by]
+    filtered_df = filtered_df.sort_values(
+        by=sort_column,
+        ascending=(sort_order == 'Croissant')
+    )
+
+    # Métriques principales avec icônes
+    st.markdown('<p class="subheader">📈 Synthèse des mots-clés</p>', unsafe_allow_html=True)
+    
+    metric_col1, metric_col2, metric_col3, metric_col4 = st.columns(4)
+    with metric_col1:
+        st.metric("🎯 Total mots-clés", f"{len(filtered_df):,}")
+    with metric_col2:
+        st.metric("📊 Volume total", f"{int(filtered_df['Search Volume'].sum()):,}")
+    with metric_col3:
+        st.metric("📈 KD moyen", f"{round(filtered_df['Keyword Difficulty'].mean(), 1)}")
+    with metric_col4:
+        st.metric("💰 CPC moyen", f"${round(filtered_df['CPC'].mean(), 2)}")
+
+    # Création des onglets
+    tab1, tab2, tab3 = st.tabs(["📊 Résultats filtrés", "📈 Répartition par stratégie", "🔍 Visualisations"])
+    
+    with tab1:
+        st.dataframe(filtered_df, use_container_width=True, height=400)
+        export_data(filtered_df, client_name)
+
+    with tab2:
+        # Définir l'ordre des stratégies
+        strategy_order = ['Sauvegarde', 'Quick Win', 'Opportunité', 'Potentiel', 'Conquête', 'Non positionné']
+        
+        # Calcul des statistiques avec un ordre fixe
+        stats_df = filtered_df.groupby('Stratégie').agg({
+            'Keyword': 'count',
+            'Search Volume': 'sum',
+            'Keyword Difficulty': 'mean',
+            'CPC': 'mean'
+        }).round(2)
+        
+        # Réorganiser selon l'ordre défini
+        stats_df = stats_df.reindex(strategy_order)
+        
+        # Renommer les colonnes
+        stats_df.columns = ['Nombre de mots-clés', 'Volume total', 'KD moyen', 'CPC moyen']
+        
+        # Formater les valeurs numériques
+        stats_df['Nombre de mots-clés'] = stats_df['Nombre de mots-clés'].fillna(0).astype(int)
+        stats_df['Volume total'] = stats_df['Volume total'].fillna(0).astype(int)
+        stats_df['KD moyen'] = stats_df['KD moyen'].round(1)
+        stats_df['CPC moyen'] = stats_df['CPC moyen'].round(2)
+        
+        st.dataframe(stats_df, use_container_width=True, height=230)
+
+    with tab3:
+        col1, col2, col3 = st.columns(3)
+        
+        # Configuration commune pour tous les graphiques
+        graph_title_style = {
+            'font': {'size': 16, 'family': 'Arial'},
+            'y': 0.95  # Position verticale du titre
+        }
+        graph_layout = {
+            'title_font': graph_title_style['font'],
+            'showlegend': True,
+            'paper_bgcolor': 'white',
+            'plot_bgcolor': 'white',
+            'margin': dict(t=50, b=30, l=30, r=30)
+        }
+        
+        with col1:
+            # Distribution des volumes par position
+            fig_volume = create_position_volume_histogram(filtered_df, client_name)
+            fig_volume.update_layout(
+                title=dict(
+                    text='Distribution du volume de recherche par position',
+                    **graph_title_style
+                ),
+                **graph_layout
+            )
+            st.plotly_chart(fig_volume, use_container_width=True)
+        
+        with col2:
+            # Répartition des stratégies
+            fig_strategies = px.pie(
+                filtered_df,
+                names='Stratégie',
+                title='Répartition des stratégies',
+                category_orders={'Stratégie': strategy_order}
+            )
+            fig_strategies.update_layout(
+                title=dict(
+                    text='Répartition des stratégies',
+                    **graph_title_style
+                ),
+                **graph_layout
+            )
+            st.plotly_chart(fig_strategies, use_container_width=True)
+        
+        with col3:
+            # Répartition des intentions
+            fig_intentions = px.pie(
+                filtered_df,
+                names='Intention',
+                title='Répartition des intentions de recherche'
+            )
+            fig_intentions.update_layout(
+                title=dict(
+                    text='Répartition des intentions de recherche',
+                    **graph_title_style
+                ),
+                **graph_layout
+            )
+            st.plotly_chart(fig_intentions, use_container_width=True)
 
 def create_position_volume_histogram(filtered_df, client_name):
     """Crée un histogramme de distribution des volumes par position"""
@@ -470,86 +590,6 @@ def create_position_volume_histogram(filtered_df, client_name):
     
     return fig_volume
 
-def display_metrics_and_results(filtered_df, client_name):
-    """Affiche les métriques et les résultats"""
-    # Métriques principales avec icônes
-    st.markdown('<p class="subheader">📈 Synthèse des mots-clés</p>', unsafe_allow_html=True)
-    
-    metric_col1, metric_col2, metric_col3, metric_col4 = st.columns(4)
-    with metric_col1:
-        st.metric("🎯 Total mots-clés", f"{len(filtered_df):,}")
-    with metric_col2:
-        st.metric("📊 Volume total", f"{int(filtered_df['Search Volume'].sum()):,}")
-    with metric_col3:
-        st.metric("📈 KD moyen", f"{round(filtered_df['Keyword Difficulty'].mean(), 1)}")
-    with metric_col4:
-        st.metric("💰 CPC moyen", f"${round(filtered_df['CPC'].mean(), 2)}")
-
-    # Affichage du DataFrame filtré
-    st.subheader("Résultats filtrés")
-    st.dataframe(filtered_df, use_container_width=True, height=400)
-
-    # Répartition par stratégie avec style amélioré
-    st.subheader("Répartition par stratégie")
-    
-    # Définir l'ordre des stratégies
-    strategy_order = ['Sauvegarde', 'Quick Win', 'Opportunité', 'Potentiel', 'Conquête', 'Non positionné']
-    
-    # Calcul des statistiques avec un ordre fixe
-    stats_df = filtered_df.groupby('Stratégie').agg({
-        'Keyword': 'count',
-        'Search Volume': 'sum',
-        'Keyword Difficulty': 'mean',
-        'CPC': 'mean'
-    }).round(2)
-    
-    # Réorganiser selon l'ordre défini
-    stats_df = stats_df.reindex(strategy_order)
-    
-    # Renommer les colonnes
-    stats_df.columns = ['Nombre de mots-clés', 'Volume total', 'KD moyen', 'CPC moyen']
-    
-    # Formater les valeurs numériques
-    stats_df['Nombre de mots-clés'] = stats_df['Nombre de mots-clés'].fillna(0).astype(int)
-    stats_df['Volume total'] = stats_df['Volume total'].fillna(0).astype(int)
-    stats_df['KD moyen'] = stats_df['KD moyen'].round(1)
-    stats_df['CPC moyen'] = stats_df['CPC moyen'].round(2)
-    
-    # Afficher le tableau avec une hauteur fixe
-    st.dataframe(
-        stats_df,
-        use_container_width=True,
-        height=230  # Hauteur fixe pour éviter les sursauts
-    )
-
-    # Visualisations
-    st.subheader("Visualisations")
-    col1, col2, col3 = st.columns(3)
-    
-    with col1:
-        # Distribution des volumes par position
-        fig_volume = create_position_volume_histogram(filtered_df, client_name)
-        st.plotly_chart(fig_volume, use_container_width=True)
-    
-    with col2:
-        # Répartition des stratégies
-        fig_strategies = px.pie(
-            filtered_df,
-            names='Stratégie',
-            title='Répartition des stratégies',
-            category_orders={'Stratégie': strategy_order}  # Utiliser le même ordre
-        )
-        st.plotly_chart(fig_strategies, use_container_width=True)
-    
-    with col3:
-        # Répartition des intentions
-        fig_intentions = px.pie(
-            filtered_df,
-            names='Intention',
-            title='Répartition des intentions de recherche'
-        )
-        st.plotly_chart(fig_intentions, use_container_width=True)
-
 def export_to_excel(filtered_df, client_name):
     """Export Excel avec mise en forme"""
     buffer = BytesIO()
@@ -561,7 +601,7 @@ def export_to_excel(filtered_df, client_name):
         # Formats
         header_format = workbook.add_format({
             'bold': True,
-            'bg_color': '#FF4B4B',
+            'bg_color': '#2BAF9C',  # Vert du logo
             'color': 'white'
         })
         
@@ -573,36 +613,178 @@ def export_to_excel(filtered_df, client_name):
     return buffer
 
 def add_help_tooltips():
-    """Ajoute des infobulles d'aide"""
+    """Ajoute des infobulles d'aide détaillées"""
     st.sidebar.markdown("""
-    ### 📖 Guide d'utilisation
-    1. **Import** : Formats acceptés
-       - Ahrefs : `domain-organic-keywords.csv`
-       - Semrush : `domain-organic.Positions.csv`
-    
-    2. **Filtres** :
-       - **Stratégie** : Catégorisation selon la position
-       - **Volume** : Nombre de recherches mensuelles
-       - **KD** : Difficulté du mot-clé (0-100)
+    # 📖 Guide d'utilisation
+
+    ## 1. Import des données
+    ### Formats acceptés :
+    - **Ahrefs** : `domain-organic-keywords.csv`
+       - Export depuis : Organic Keywords > Export
+       - Encodage : UTF-16
+    - **Semrush** : `domain-organic.Positions.csv`
+       - Export depuis : Organic Research > Positions
+       - Encodage : UTF-8
+
+    ## 2. Configuration
+    - **Client** : Sélectionnez votre domaine
+    - **Nombre minimum de sites** : Filtrer les mots-clés présents sur X sites concurrents
+    - **Position maximum** : Limite de position pour l'analyse (ex: top 20)
+
+    ## 3. Stratégies SEO
+    - **🏆 Sauvegarde** (Pos. 1) : Maintenir le positionnement
+    - **⚡ Quick Win** (Pos. 2-5) : Opportunités rapides
+    - **📈 Opportunité** (Pos. 6-10) : Potentiel à court terme
+    - **🎯 Potentiel** (Pos. 11-20) : Potentiel à moyen terme
+    - **🚀 Conquête** (Pos. > 20) : Objectifs long terme
+
+    ## 4. Intentions de recherche
+    - **ℹ️ Informationnelle** : Recherche d'information
+    - **💰 Transactionnelle** : Intention d'achat
+    - **🔍 Navigationnelle** : Recherche de site/marque
+    - **🛒 Commerciale** : Comparaison/évaluation
     """)
 
+def add_tooltips_to_filters():
+    """Ajoute des tooltips aux éléments de filtrage"""
+    tooltips = {
+        "volume": "Nombre mensuel moyen de recherches pour ce mot-clé",
+        "kd": """Score de difficulté (0-100) :
+        - 0-20 : Facile
+        - 21-40 : Modéré
+        - 41-60 : Difficile
+        - 61-80 : Très difficile
+        - 81-100 : Extrêmement difficile""",
+        "position": "Position actuelle du site client dans les résultats Google",
+        "cpc": "Coût par clic moyen en publicité Google Ads",
+        "concurrence": "Nombre de sites positionnés sur ce mot-clé"
+    }
+    return tooltips
+
+def add_contextual_help():
+    """Ajoute des explications contextuelles dans l'interface"""
+    with st.expander("ℹ️ Comment utiliser cet outil ?", expanded=False):
+        st.markdown("""
+        ### Processus en 4 étapes :
+
+        1. **Préparation des données**
+           - Exportez les données de vos outils SEO
+           - Assurez-vous d'avoir les fichiers pour chaque concurrent
+           - Nommez les fichiers avec le domaine (ex: monsite.csv)
+
+        2. **Import et configuration**
+           - Importez tous vos fichiers en une fois
+           - Sélectionnez votre domaine client
+           - Ajustez les paramètres d'analyse selon vos besoins
+
+        3. **Analyse des résultats**
+           - Utilisez les filtres pour affiner votre analyse
+           - Examinez les différentes visualisations
+           - Identifiez les opportunités prioritaires
+
+        4. **Export et action**
+           - Exportez les résultats filtrés
+           - Utilisez les données pour votre stratégie SEO
+           - Suivez l'évolution des positions
+
+        ### Conseils d'utilisation :
+        - Commencez par les "Quick Wins" pour des résultats rapides
+        - Analysez l'intention de recherche pour prioriser vos actions
+        - Utilisez les filtres de volume pour identifier les opportunités à fort potentiel
+        """)
+
+def add_metric_explanations():
+    """Ajoute des explications pour chaque métrique"""
+    with st.expander("📊 Comprendre les métriques", expanded=False):
+        st.markdown("""
+        ### Métriques principales
+
+        #### 🎯 Stratégie
+        - **Sauvegarde** : Mots-clés en position 1 - Focus sur la défense
+        - **Quick Win** : Positions 2-5 - Potentiel de gain rapide
+        - **Opportunité** : Positions 6-10 - Progression possible
+        - **Potentiel** : Positions 11-20 - Travail à moyen terme
+        - **Conquête** : Positions > 20 - Objectif long terme
+
+        #### 📈 Métriques SEO
+        - **Volume** : Nombre moyen de recherches mensuelles
+        - **KD** : Score de difficulté (0-100)
+            - 0-20 : Facile
+            - 21-40 : Modéré
+            - 41-60 : Difficile
+            - 61-80 : Très difficile
+            - 81-100 : Extrêmement difficile
+        
+        #### 🎯 Intention de recherche
+        - **Informationnelle** : Recherche d'information
+        - **Transactionnelle** : Intention d'achat
+        - **Navigationnelle** : Recherche de site/marque
+        - **Commerciale** : Comparaison/évaluation
+        """)
+
 def export_data(filtered_df, client_name):
-    col1, col2 = st.columns(2)
-    with col1:
+    """Export des données avec gestion des limitations Excel"""
+    # Vérifier si on a des URLs qui dépasseraient la limite Excel
+    url_columns = [col for col in filtered_df.columns if '(URL)' in col]
+    has_long_urls = any(
+        filtered_df[col].astype(str).str.len().max() > 255 
+        for col in url_columns
+    )
+
+    # Conteneur pour les boutons d'export avec style personnalisé
+    st.markdown("""
+        <style>
+        .export-buttons {
+            display: flex;
+            gap: 8px;  /* Réduit l'espacement entre les boutons */
+            margin-top: 1rem;
+            justify-content: flex-start;  /* Aligne les boutons à gauche */
+            padding-left: 0;  /* Supprime le padding à gauche */
+        }
+        .export-buttons > div {
+            flex: 0 0 auto;
+            padding: 0;  /* Supprime le padding des colonnes */
+        }
+        .export-buttons button {
+            min-width: 120px;  /* Largeur minimale des boutons */
+        }
+        </style>
+    """, unsafe_allow_html=True)
+
+    if has_long_urls:
+        # Si on a des URLs trop longues, proposer uniquement le CSV
+        st.markdown('<div class="export-buttons">', unsafe_allow_html=True)
         st.download_button(
             "📥 Export CSV",
             filtered_df.to_csv(index=False),
             f"Analyse_Concurrentielle_{client_name}.csv",
-            mime="text/csv"
+            mime="text/csv",
+            help="Export au format CSV (recommandé pour les URLs longues)",
+            type="primary"
         )
-    with col2:
-        buffer = export_to_excel(filtered_df, client_name)
-        st.download_button(
-            "📊 Export Excel",
-            buffer.getvalue(),
-            f"Analyse_Concurrentielle_{client_name}.xlsx",
-            mime="application/vnd.ms-excel"
-        )
+        st.markdown('</div>', unsafe_allow_html=True)
+    else:
+        # Sinon proposer les deux formats
+        st.markdown('<div class="export-buttons">', unsafe_allow_html=True)
+        col1, col2 = st.columns([1, 1])  # Deux colonnes de même taille sans espacement
+        with col1:
+            st.download_button(
+                "📥 Export CSV",
+                filtered_df.to_csv(index=False),
+                f"Analyse_Concurrentielle_{client_name}.csv",
+                mime="text/csv",
+                type="primary"
+            )
+        with col2:
+            buffer = export_to_excel(filtered_df, client_name)
+            st.download_button(
+                "📊 Export Excel",
+                buffer.getvalue(),
+                f"Analyse_Concurrentielle_{client_name}.xlsx",
+                mime="application/vnd.ms-excel",
+                type="primary"
+            )
+        st.markdown('</div>', unsafe_allow_html=True)
 
 def create_advanced_visualizations(filtered_df, client_name):
     # Distribution des volumes par difficulté
@@ -790,8 +972,14 @@ def extract_domains_from_files(uploaded_files):
 def main():
     initialize_session_state()
     
+    # En-tête avec description
+    st.title("Analyse Concurrentielle")
+    
     # Configuration dans la sidebar
     with st.sidebar:
+        # Ajout du logo
+        st.image("DR SEO Header.svg", use_column_width=True)
+        
         st.header("Configuration")
         
         # Étape 1 : Téléchargement des fichiers
@@ -816,25 +1004,12 @@ def main():
             nombre_sites = st.number_input("Nombre minimum de sites", min_value=1, value=1)
             top_position = st.number_input("Position maximum", min_value=1, value=20)
 
-            # Boutons d'action
+            # Bouton d'action
             st.markdown("---")
-            if client_name:  # Vérification que le client est sélectionné
+            if client_name:
                 if st.button("Lancer l'analyse", type="primary"):
                     if process_and_store_data(uploaded_files, client_name, nombre_sites, top_position):
                         st.success("Analyse terminée avec succès!")
-                
-                # Bouton de téléchargement
-                if st.session_state.analysis_done and st.session_state.df_final is not None:
-                    st.download_button(
-                        label="📥 Télécharger les résultats",
-                        data=st.session_state.df_final.to_csv(index=False),
-                        file_name=f"Analyse_Concurrentielle_{client_name}.csv",
-                        mime="text/csv",
-                        help="Télécharger les résultats filtrés au format CSV",
-                        type="primary"
-                    )
-
-    st.title("Analyse Content Gap SEO")
 
     # Affichage des résultats si disponibles
     if st.session_state.analysis_done and st.session_state.df_final is not None:
